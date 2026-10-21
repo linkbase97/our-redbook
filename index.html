@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="我们的小本子">
+<meta name="theme-color" content="#7c3a6b">
+<title>我们的小本子</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#f6f3fa;--card:#fff;--ink:#2b2340;--sub:#7a7390;--line:#e2dcee;--accent:#b8386f;--accent-ink:#fff;--ok:#2f8f83;
+ color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#18132a;--card:#241d3a;--ink:#f1edf9;--sub:#a49cc0;--line:#3a3158;--accent:#e0679a;--accent-ink:#1b1230;--ok:#58c2b3;color-scheme:dark}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+ padding:env(safe-area-inset-top,0) 0 0}
+#app{max-width:520px;margin:0 auto;padding:16px 16px calc(84px + env(safe-area-inset-bottom,0))}
+h1{font-size:26px;margin:8px 0 2px;letter-spacing:.02em}
+.sub{color:var(--sub);font-size:14px;margin:0 0 16px}
+.row{display:flex;gap:8px}
+input[type=text]{flex:1;min-width:0;font:inherit;color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:12px 14px}
+input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:12px 16px;background:var(--accent);color:var(--accent-ink);font-weight:600}
+button.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--line)}
+button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+button:disabled{opacity:.5}
+ul{list-style:none;margin:16px 0 0;padding:0}
+li{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:8px}
+li .t{flex:1;word-break:break-word}
+li.done .t{text-decoration:line-through;color:var(--sub)}
+.chk{width:28px;height:28px;border-radius:50%;padding:0;background:transparent;border:2px solid var(--line);color:var(--accent-ink);display:grid;place-items:center;flex:none}
+li.done .chk{background:var(--ok);border-color:var(--ok)}
+.x{background:transparent;color:var(--sub);padding:6px 10px;font-size:20px;line-height:1}
+.empty{color:var(--sub);text-align:center;padding:28px 12px}
+.divider{color:var(--sub);font-size:13px;margin:18px 0 8px}
+#wheelWrap{position:relative;width:min(88vw,340px);margin:8px auto 18px}
+canvas{width:100%;height:auto;display:block}
+#pointer{position:absolute;left:50%;top:-6px;transform:translateX(-50%);width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-top:22px solid var(--ink);filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+#result{text-align:center;font-size:22px;font-weight:700;min-height:34px;margin-bottom:12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{display:flex;align-items:center;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 4px 4px 12px;font-size:14px}
+.chip .x{padding:2px 8px;font-size:18px}
+#status{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0));background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;display:none;max-width:90vw;z-index:5}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 12px calc(6px + env(safe-area-inset-bottom,0));gap:8px;z-index:4}
+nav button{flex:1;background:transparent;color:var(--sub);padding:10px}
+nav button.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.hide{display:none!important}
+.join{margin-top:12vh}
+.foot{text-align:center;margin-top:28px}
+.foot button{font-size:13px;padding:6px 10px;color:var(--sub);background:transparent}
+.missing{background:var(--card);border:1px dashed var(--accent);border-radius:14px;padding:16px;margin-top:20px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 配置没填 -->
+  <section id="missing" class="missing hide">
+    <b>还没配置数据库</b>
+    <p class="sub" style="margin:6px 0 0">打开 index.html，把顶部的 SUPABASE_URL 和 SUPABASE_KEY 换成你自己项目的值。</p>
+  </section>
+
+  <!-- 输入暗号 -->
+  <section id="join" class="join hide">
+    <h1>我们的小本子</h1>
+    <p class="sub">两个人输入同一个暗号，就能看到同一份清单和转盘。暗号越长越不容易被别人猜到（至少 6 个字符）。</p>
+    <div class="row">
+      <input id="code" type="text" placeholder="例如：我们的暗号2026" autocomplete="off" autocapitalize="off">
+      <button id="enter">进入</button>
+    </div>
+  </section>
+
+  <!-- 主界面 -->
+  <section id="main" class="hide">
+    <div id="tabList">
+      <h1>共享清单</h1>
+      <p class="sub">想去的、想吃的、想做的，一起勾掉。</p>
+      <div class="row">
+        <input id="newItem" type="text" placeholder="添加一件想一起做的事" autocomplete="off" enterkeyhint="done">
+        <button id="addItem">添加</button>
+      </div>
+      <ul id="list"></ul>
+    </div>
+
+    <div id="tabWheel" class="hide">
+      <h1>决策转盘</h1>
+      <p class="sub">今晚吃什么？周末去哪？交给转盘。</p>
+      <div id="wheelWrap"><div id="pointer"></div><canvas id="wheel" width="680" height="680"></canvas></div>
+      <div id="result"></div>
+      <div class="row">
+        <button id="spin" style="flex:1">转一下</button>
+        <button id="import" class="ghost">导入未完成清单</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <input id="newOpt" type="text" placeholder="添加一个选项" autocomplete="off" enterkeyhint="done">
+        <button id="addOpt">添加</button>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="foot"><button id="leave">换一个暗号</button></div>
+    </div>
+  </section>
+</div>
+
+<div id="status" role="status"></div>
+<nav id="nav" class="hide">
+  <button id="navList" class="on">清单</button>
+  <button id="navWheel">转盘</button>
+</nav>
+
+<script>
+/* ===== 只需要改这两行 ===== */
+const SUPABASE_URL = "https://mpnfmrpxhmpksbqsaund.supabase.co/rest/v1/";
+const SUPABASE_KEY = "sb_publishable_DPJg59Qdsn1UkwZdWI0qOw_WO_obzCa";
+/* ========================= */
+
+const $ = s => document.querySelector(s);
+let room = null, sb = null, items = [], opts = [], angle = 0, spinning = false, timer = null;
+
+try { room = localStorage.getItem("room"); } catch (e) {}
+
+function status(msg) {
+  const el = $("#status"); el.textContent = msg; el.style.display = "block";
+  clearTimeout(status.t); status.t = setTimeout(() => el.style.display = "none", 3000);
+}
+function show(id, on) { $(id).classList.toggle("hide", !on); }
+
+/* ---------- 启动 ---------- */
+(function start() {
+  makeIcon();
+  if (!SUPABASE_URL.startsWith("https://") || SUPABASE_URL.includes("你的")) { show("#missing", true); return; }
+  if (!room) { show("#join", true); return; }
+  init();
+})();
+
+$("#enter").onclick = () => {
+  const v = $("#code").value.trim();
+  if (v.length < 6) return status("暗号至少 6 个字符");
+  room = v;
+  try { localStorage.setItem("room", room); } catch (e) {}
+  show("#join", false); init();
+};
+$("#code").addEventListener("keydown", e => { if (e.key === "Enter") $("#enter").click(); });
+$("#leave").onclick = () => {
+  try { localStorage.removeItem("room"); } catch (e) {}
+  location.reload();
+};
+
+async function hashRoom(code) {
+  const bytes = new TextEncoder().encode(code);
+  try {
+    const h = await crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, "0")).join("");
+  } catch (e) {
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+}
+
+async function init() {
+  room = await hashRoom(room);
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global: { headers: { "x-room": room } } });
+  show("#main", true); show("#nav", true);
+  refresh();
+  timer = setInterval(refresh, 5000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+}
+
+/* ---------- 数据 ---------- */
+async function refresh() {
+  if (spinning || document.hidden) return;
+  const [a, b] = await Promise.all([
+    sb.from("couple_items").select("*").order("created_at"),
+    sb.from("couple_wheel_options").select("*").order("created_at")
+  ]);
+  if (a.error || b.error) { const er = a.error || b.error; return status("连不上数据库：" + (er.message || er.code || "未知错误")); }
+  items = a.data; opts = b.data;
+  renderList(); renderChips(); drawWheel();
+}
+async function write(p) {
+  const { error } = await p;
+  if (error) status("保存失败：" + error.message);
+  await refresh();
+}
+
+/* ---------- 清单 ---------- */
+function renderList() {
+  const ul = $("#list"); ul.textContent = "";
+  if (!items.length) {
+    const d = document.createElement("div"); d.className = "empty";
+    d.textContent = "清单还是空的，先添加第一件想一起做的事吧。";
+    ul.appendChild(d); return;
+  }
+  const sorted = [...items.filter(i => !i.done), ...items.filter(i => i.done)];
+  sorted.forEach(i => {
+    const li = document.createElement("li"); if (i.done) li.className = "done";
+    const c = document.createElement("button"); c.className = "chk"; c.setAttribute("aria-label", i.done ? "标记为未完成" : "标记为完成");
+    c.textContent = i.done ? "✓" : "";
+    c.onclick = () => write(sb.from("couple_items").update({ done: !i.done }).eq("id", i.id));
+    const t = document.createElement("span"); t.className = "t"; t.textContent = i.text;
+    const x = document.createElement("button"); x.className = "x"; x.textContent = "×"; x.setAttribute("aria-label", "删除");
+    x.onclick = () => write(sb.from("couple_items").delete().eq("id", i.id));
+    li.append(c, t, x); ul.appendChild(li);
+  });
+}
+function addItem() {
+  const v = $("#newItem").value.trim(); if (!v) return;
+  $("#newItem").value = "";
+  write(sb.from("couple_items").insert({ room, text: v }));
+}
+$("#addItem").onclick = addItem;
+$("#newItem").addEventListener("keydown", e => { if (e.key === "Enter") addItem(); });
+
+/* ---------- 转盘 ---------- */
+function renderChips() {
+  const box = $("#chips"); box.textContent = "";
+  opts.forEach(o => {
+    const c = document.createElement("span"); c.className = "chip";
+    const t = document.createElement("span"); t.textContent = o.text;
+    const x = document.createElement("button"); x.className = "x"; x.textContent = "×"; x.setAttribute("aria-label", "删除选项");
+    x.onclick = () => write(sb.from("couple_wheel_options").delete().eq("id", o.id));
+    c.append(t, x); box.appendChild(c);
+  });
+}
+function addOpt() {
+  const v = $("#newOpt").value.trim(); if (!v) return;
+  $("#newOpt").value = "";
+  write(sb.from("couple_wheel_options").insert({ room, text: v }));
+}
+$("#addOpt").onclick = addOpt;
+$("#newOpt").addEventListener("keydown", e => { if (e.key === "Enter") addOpt(); });
+
+$("#import").onclick = () => {
+  const have = new Set(opts.map(o => o.text));
+  const rows = items.filter(i => !i.done && !have.has(i.text)).map(i => ({ room, text: i.text }));
+  if (!rows.length) return status("没有可导入的未完成事项");
+  write(sb.from("couple_wheel_options").insert(rows));
+};
+
+function drawWheel() {
+  const cv = $("#wheel"), ctx = cv.getContext("2d"), W = cv.width, R = W / 2 - 6;
+  const ink = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim();
+  const line = getComputedStyle(document.documentElement).getPropertyValue("--line").trim();
+  ctx.clearRect(0, 0, W, W);
+  const n = opts.length;
+  if (!n) {
+    ctx.beginPath(); ctx.arc(W / 2, W / 2, R, 0, Math.PI * 2);
+    ctx.strokeStyle = line; ctx.lineWidth = 4; ctx.setLineDash([14, 12]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = ink; ctx.globalAlpha = .6; ctx.font = "30px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("先添加几个选项", W / 2, W / 2 + 10); ctx.globalAlpha = 1; return;
+  }
+  const seg = Math.PI * 2 / n;
+  ctx.save(); ctx.translate(W / 2, W / 2); ctx.rotate(angle);
+  opts.forEach((o, i) => {
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, i * seg, (i + 1) * seg); ctx.closePath();
+    ctx.fillStyle = `hsl(${(i * 137) % 360} 55% 72%)`; ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.lineWidth = 3; ctx.stroke();
+    ctx.save(); ctx.rotate(i * seg + seg / 2); ctx.textAlign = "right"; ctx.fillStyle = "#2b2340";
+    ctx.font = "bold 30px -apple-system, 'PingFang SC', sans-serif";
+    let s = o.text; if (s.length > 8) s = s.slice(0, 7) + "…";
+    ctx.fillText(s, R - 24, 10); ctx.restore();
+  });
+  ctx.restore();
+}
+
+$("#spin").onclick = () => {
+  if (spinning) return;
+  if (opts.length < 2) return status("至少需要 2 个选项");
+  spinning = true; $("#spin").disabled = true; $("#result").textContent = "";
+  const start = angle, total = Math.PI * 2 * (5 + Math.random() * 3) + Math.random() * Math.PI * 2;
+  const dur = 4200, t0 = performance.now();
+  const frame = now => {
+    const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+    angle = start + total * e; drawWheel();
+    if (p < 1) return requestAnimationFrame(frame);
+    const seg = Math.PI * 2 / opts.length;
+    const at = ((-Math.PI / 2 - angle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+    $("#result").textContent = opts[Math.floor(at / seg)].text;
+    spinning = false; $("#spin").disabled = false;
+  };
+  requestAnimationFrame(frame);
+};
+
+/* ---------- 标签页 ---------- */
+function tab(w) {
+  show("#tabList", w === "list"); show("#tabWheel", w === "wheel");
+  $("#navList").classList.toggle("on", w === "list"); $("#navWheel").classList.toggle("on", w === "wheel");
+  if (w === "wheel") drawWheel();
+}
+$("#navList").onclick = () => tab("list");
+$("#navWheel").onclick = () => tab("wheel");
+
+/* ---------- 主屏幕图标（运行时生成） ---------- */
+function makeIcon() {
+  const c = document.createElement("canvas"); c.width = c.height = 180;
+  const x = c.getContext("2d");
+  x.fillStyle = "#7c3a6b"; x.fillRect(0, 0, 180, 180);
+  x.strokeStyle = "#fff"; x.lineWidth = 16; x.lineCap = x.lineJoin = "round";
+  x.beginPath(); x.moveTo(52, 94); x.lineTo(80, 122); x.lineTo(130, 60); x.stroke();
+  const l = document.createElement("link"); l.rel = "apple-touch-icon"; l.href = c.toDataURL("image/png");
+  document.head.appendChild(l);
+}
+</script>
+</body>
+</html>
