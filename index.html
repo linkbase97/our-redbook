@@ -112,7 +112,7 @@ nav button.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 12%
 
 <script>
 /* ===== 只需要改这两行 ===== */
-const SUPABASE_URL = "https://mpnfmrpxhmpksbqsaund.supabase.co/rest/v1/";
+const SUPABASE_URL = "https://mpnfmrpxhmpksbqsaund.supabase.co";
 const SUPABASE_KEY = "sb_publishable_DPJg59Qdsn1UkwZdWI0qOw_WO_obzCa";
 /* ========================= */
 
@@ -160,7 +160,8 @@ async function hashRoom(code) {
 
 async function init() {
   room = await hashRoom(room);
-  sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global: { headers: { "x-room": room } } });
+  const base = SUPABASE_URL.trim().replace(/^(https:\/\/[^\/]+).*$/, "$1");
+  sb = supabase.createClient(base, SUPABASE_KEY.trim(), { global: { headers: { "x-room": room } } });
   show("#main", true); show("#nav", true);
   refresh();
   timer = setInterval(refresh, 5000);
